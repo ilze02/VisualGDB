@@ -1,0 +1,11 @@
+<RCC>
+    <qresource prefix="/">
+        <file alias="icon-break">break.png</file>
+        <file>icons-resource.qrc</file>
+        <file alias="icon-run">run.png</file>
+        <file alias="icon-stepin">step-in.png</file>
+        <file alias="icon-stepout">step-out.png</file>
+        <file alias="icon-stepover">step-over.png</file>
+        <file alias="icon-stop">stop.png</file>
+    </qresource>
+</RCC>
