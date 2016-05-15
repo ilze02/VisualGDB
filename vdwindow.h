@@ -3,6 +3,7 @@
 
 #include <QWidget>
 
+
 class QPushButton;
 class QPlainTextEdit;
 class QString;
@@ -12,6 +13,8 @@ class QGraphicsScene;
 class QGraphicsView;
 class QToolBar;
 class QAction;
+class GDBMIParser;
+
 
 class VDWindow : public QWidget
 {
@@ -30,7 +33,9 @@ private:
     QGraphicsScene *scene;
 
     QString program;
-    QProcess *GDBProcess;
+    QProcess *process;
+
+    GDBMIParser * parser;
 
 signals:
     //void counterReached();

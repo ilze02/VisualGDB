@@ -1,7 +1,8 @@
 #include <QApplication>
 #include <QProcess>
 #include "vdwindow.h"
-#include <gvc.h>
+#include "vdgraph.h"
+//#include <gvc.h>
 
 int main(int argc, char **argv)
 {
@@ -9,6 +10,9 @@ int main(int argc, char **argv)
 
     VDWindow window;
     window.showMaximized();
+
+    VDGraph graph;
+
 
     return app.exec();
 }

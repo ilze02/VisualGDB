@@ -1,0 +1,355 @@
+GDB/MI Output Syntax
+
+Description of GDB/MI from GDB documentation
+--------------------------------------------
+
+output              -> (out-of-band-record)* [result-record] "(gdb)" nl
+result-record       -> [token] "^" result-class ("," result)* nl
+out-of-band-record  -> async-record | stream-record
+async-record        -> exec-async-output | status-async-output |
+                       notify-async-output 
+exec-async-output   -> [token] "*" async-output 
+status-async-output -> [token] "+" async-output 
+notify-async-output -> [token] "=" async-output 
+
+async-output        -> async-class ("," result)* nl
+result-class        -> "done" | "running" | "connected" | "error" | "exit"
+async-class         -> "stopped" | "running" | "download"
+result              -> variable "=" value
+variable            -> string
+value               -> const | tuple | list
+const               -> c-string
+tuple               -> "{}" | "{" result ("," result)* "}"
+list                -> "[]" | "[" value ("," value)* "]" |
+                       "[" result ("," result)* "]"
+
+stream-record       -> console-stream-output |
+                       target-stream-output |
+                       log-stream-output
+
+console-stream-output   -> "~" c-string
+target-stream-output    -> "@" c-string
+log-stream-output       -> "&" c-string
+nl                      -> CR | CR-LF
+token                   -> any sequence of digits. 
+
+The documented syntax described in the GDB manual can not be
+directly plugged into bison as a LR(1) grammar. For this reason I take
+some steps to document how I've changed the syntax above to be suitable
+for LR(1) parsing with bison.
+
+Transformations
+---------------
+
+I've come across two patterns that bison likes as input for LR(1) grammars.
+
+Zero or more rules like the regular expression (pattern)* look like this:
+  pattern_list -> epsilon
+  pattern_list -> pattern_list pattern
+
+One or more rules like the regular expression (pattern)+ look like this:
+  pattern_list -> pattern
+  pattern_list -> pattern_list pattern
+
+Zero or one rules like the regular expression [pattern] look like this:
+  opt_pattern -> epsilon
+  opt_pattern -> pattern
+
+Below are the transformations that I use to get from the documented
+syntax above to the LR(1) grammar I provide to bison.
+
+- (out-of-band-record)* transforms to out-of-band-record-list
+  out-of-band-record-list -> epsilon
+  out-of-band-record-list -> out-of-band-record-list out-of-band-record
+
+- [result-record] transforms to opt-result-record
+  opt-result-record -> epsilon
+  opt-result-record -> result-record
+
+- [token] transforms to opt-token
+  opt-token -> epsilon
+  opt-token -> token
+
+- ("," result)* transforms to result-list
+  result-list -> epsilon
+  result-list -> result-list "," result
+
+- ("," value)* transforms to value-list
+  value-list -> epsilon
+  value-list -> value-list "," value
+
+- Consolidate the following rules to a more concise set of rules
+- From
+    async-record        -> exec-async-output |
+                           status-async-output |
+                           notify-async-output 
+    exec-async-output   -> [token] "*" async-output 
+    status-async-output -> [token] "+" async-output 
+    notify-async-output -> [token] "=" async-output 
+
+ To
+    async-record        -> opt-token async-output-kind async-output
+    async-output-kind   -> "*" | "+" | "="
+
+- Consolidate the following rules to a more consice set of rules
+- From
+    stream-record       -> console-stream-output |
+                           target-stream-output |
+                           log-stream-output
+
+    console-stream-output   -> "~" c-string
+    target-stream-output    -> "@" c-string
+    log-stream-output       -> "&" c-string
+
+  To 
+    stream-record       -> stream-record-kind c-string
+    stream-record-kind  -> "~" | "@" | "&"
+
+Simplifications
+---------------
+
+Below are some simplifications I've made to the grammar.
+
+1) async-output
+
+  async-output is used in one location and defined in one location. It makes
+  sense to combine this rule with the rule that uses it, async-record.
+
+  To accomplish this, change the grammar
+  From:
+    async-record        -> opt-token async-record-kind async-output
+    async-output        -> async-class result-list
+  To
+    async-record        -> opt-token async-record-kind async-class result-list
+
+Extensions to GDB/MI
+--------------------
+
+Finally, gdbwire must be able to receive many output commands during
+a single session. So the grammar supports accepting an output list.
+
+GDB/MI Clarifications
+---------------------
+
+1) The c-string GDB/MI output rule
+
+  For the GDB/MI output command, there is no clarification for exactly
+  what the c-string rule outputs. When I look at the documentation for the
+  GDB/MI input command I see this,
+    c-string -> """ seven-bit-iso-c-string-content """
+  The documentation doesn't say if this is true for the GDB/MI output
+  command as well. It also doesn't clarify exactly what will be output.
+
+  I determined from trial and error that the c-string rule starts with a
+  double quote, has zero or more characters and ends with a double quote.
+  This can be verified in GDB in utils.c:printchar.
+
+  Any double quote or backslash character between the starting and ending
+  double quotes is escaped with another backslash. It looks like this,
+    if (c == '\\' || c == quoter)
+      do_fputs ("\\", stream);
+  where in this instance quoter is ".
+
+  Any unprintable character is printed as octal as so,
+    do_fprintf (stream, "\\%.3o", (unsigned int) c);
+  The CLI also has this behavior.
+
+  Several other special characters like \n and \r, etc are translated to \\n.
+
+  In order to provide the gdbwire user with the intended information, I had
+  to write an unescape c-string function which undoes the escaping added
+  in the GDB/MI protocol layer. Currently, the functionality simply skips
+  any \ characters in the c-string and takes the next character.
+
+GDB/MI Bug Fixes
+----------------
+
+1) The GDB/MI newline bug
+
+  It appears that the GDB/MI specification incorrectly states in the grammar
+  where the newlines are placed. This documentation shows how I've changed the
+  GDB/MI grammar to handle the actual newlines put out by GDB/MI.
+
+  Please note that the oob-record-list rule,
+    oob-record-list -> oob-record-list oob-record nl
+  and the opt-result-record rule,
+    opt-result-record   -> result-record nl
+  have a newline at the end of them even though it is not in the GDB syntax.
+
+  On the contrary, the syntax has,
+      async-output        -> async-class ("," result)* nl
+  but there is no nl after the async output.
+
+2) The GDB/MI result versus value bug
+
+  You can think of a result as a key/value pair. Where the key component is
+  a string name, and the value component is a c-string, tuple or list.
+
+  The GDB/MI specification attempts to clearly state where value's will be
+  used and where result's will be used. The reality is, it does this wrong.
+  There are places where it specifies a result will be, but a value is found.
+  A case I found like this is with async-output records which contain values
+  instead of results like specified.
+    -target-download
+    ...
+    +download,{section=".interp",section-size="28",total-size="2466"}
+              ^ This should start a result, not a value.
+
+  The solution to this problem is to relax the parser. To do this, I drop
+  the value concept. The result now represents the c-string, tuple or list
+  and it contains an optional key.
+
+  This fix resolves the buggy GDB/MI result/value specification at the
+  parser level and pushes the problem to the semantic layer. That is,
+  certain front ends may expect or not expect the key to be set at certain
+  locations in the parser tree.
+
+  To implement the above modifications to the GDB/MI parser specification,
+  the following changes are made to the grammar.
+
+  The value-list and value rule are removed. Removing these,
+    value-list          -> value-list "," value | epsilon
+    value               -> c-string | tuple | list
+
+  The value-list rule was only used in the list rule. The list rule is
+  changed to use result-list instead.
+  From
+    list                -> "[]" |
+                       "[" value value-list "]" | "[" result result-list "]"
+  To
+    list                -> "[]" | "[" result result-list "]"
+
+  The value rule was only used in the result rule. So result was changed
+  From
+    result              -> variable "=" value
+    value               -> c-string | tuple | list
+  To
+    opt_variable        -> variable "=" | epsilon
+    result              -> opt_variable c-string
+    result              -> opt_variable tuple
+    result              -> opt_variable list
+
+3) The GDB/MI output command is a hoax
+
+  While testing I ran into this output command,
+    0000-exec-run
+    =library-unloaded,id=...
+    =library-unloaded,id=...
+    =thread-group-started,...
+    =thread-created,id=...
+    0000^running                <- result record sandwich
+    *running,...
+    (gdb)
+  From the grammar, it should be obvious that the result record should
+  always come after the oob-record-list. However, in the above case
+  it doesn't.
+
+  I contacted the GDB mailing list and here was the response:
+    Out of band records don't necessary correspond to any command,
+    therefore making them a part of command output in the grammar is not
+    logically reasonable.
+
+    A better approach would be to say that each thing GDB outputs
+    is a sequence of line, and each line can be parsed as either out
+    of band record or result record or prompt.
+
+  So in other words, the documented grammar is fundamentally wrong compared
+  to how GDB actually works. The way GDB actually works is super easy to
+  understand. GDB simply outputs a line at a time. The line can be
+  an oob-record, a result-record or a gdb prompt.
+
+  There is a significant advantage to this line at a time approach.
+  gdbwire can now return to the client information faster than previously
+  possible as it is now possible to parse a single line and return just
+  that information rather than wait for an entire GDB/MI output record
+  to be received and parsed.
+
+  Another advantage of the line at a time approach is that it
+  simplifies error handling. Previously, if part of a GDB/MI output command
+  could not be parsed the entire output command would be considered an
+  error. Now, the error is bound only to the line being parsed that
+  contains the error.
+
+  Changing the bison grammar to accept the line at a time approach is
+  actually quite easy. gdbwire now accepts these top level rules
+    - oob-record
+    - result-record
+    - gdb prompt
+
+  Grammar modification is as follows:
+  From:
+    output-list         -> output-list output | epsilon
+    output              -> oob-record-list opt-result-record "(gdb)" nl
+    oob-record-list     -> oob-record-list oob-record nl | epsilon
+    opt-result-record   -> result-record nl | epsilon
+
+  To:
+    output-list         -> output-list output | epsilon
+    output              -> output_variant nl
+    output_variant      -> oob-record | result-record | "(gdb)"
+  Remove:
+    oob-record-list     -> oob-record-list oob-record nl | epsilon
+    opt-result-record   -> result-record nl | epsilon
+
+Error Handling in Bison
+-----------------------
+
+A bison error handler was written to ensure the parser can handle
+incorrect or unexpected GDB/MI commands and continue gracefully.
+
+There are two facilities within Bison that are used in the grammar
+to ensure error handling is done properly, 1) extending the grammar
+with new rules using the error symbol and 2) %destructor directives
+to free memory that was allocated in an action and then later
+determined to be unusable due to the new error rules.
+
+In order to support invalid GDB/MI input lines, a single high
+level error rule was added to the grammar.
+    output: error NEWLINE {
+      yyerrok;
+    };
+This takes into account the contents of any line that could not
+be parsed. The parser then resynchronize's itself on the NEWLINE
+token. This guarantees the parser will be ready the next time a token
+appears. The yyerrok; statement in the action ensures that at that
+rule, the parser understands that error recovery is at an acceptable
+location and the parser can continue in a non error state.
+
+Whenever an error does occur, the %destructor directives are used
+to tell Bison how to free memory that was allocated in a previous
+action but that is now no longer usable. I wrote a %destructor
+for any symbol that allocated memory in an action that was not
+the right most symbol in a rule. The right most symbol in a rule
+would never have it's action called and then fail to parse as it's
+the last symbol in the rule.
+
+With these two additions to the parser, along with the appropriate
+unit tests, the generated parser now appears to handle any kind
+of GDB/MI error line I've thrown at it.
+
+LR(1) Grammar
+-------------
+
+output-list         -> output-list output | epsilon
+output              -> output_variant nl
+output              -> error nl
+output_variant      -> oob-record | result-record | "(gdb)"
+result-record       -> opt-token "^" result-class result-list
+oob-record          -> async-record | stream-record
+async-record        -> opt-token async-record-kind async-class result-list
+async-record-kind   -> "*" | "+" | "="
+result-class        -> "done" | "running" | "connected" | "error" | "exit"
+async-class         -> "stopped" | "running" | "download"
+opt_variable        -> variable "=" | epsilon
+result-list         -> result-list "," result | epsilon
+result              -> opt_variable c-string
+result              -> opt_variable tuple
+result              -> opt_variable list
+variable            -> string
+tuple               -> "{}" | "{" result result-list "}"
+list                -> "[]" | "[" result result-list "]"
+stream-record       -> stream-record-kind c-string
+stream-record-kind  -> "~" | "@" | "&"
+nl                  -> CR | CR LF
+opt_token           -> token | epsilon
+token               -> [0-9]+

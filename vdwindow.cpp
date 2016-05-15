@@ -1,4 +1,5 @@
 #include "vdwindow.h"
+#include "gdbmiparser.h"
 #include <QPushButton>
 #include <QPlainTextEdit>
 #include <QApplication>
@@ -12,24 +13,14 @@
 #include <QIcon>
 #include <QLayout>
 #include <QGraphicsItem>
+#include <QAction>
 
 VDWindow::VDWindow(QWidget *parent) : QWidget(parent)
 {
-    // Set size of the window
-    //setFixedSize(1000, 600);
     QHBoxLayout *boxLayout = new QHBoxLayout();
 
     setLayout(boxLayout);
-    // Create and position the button
 
-    //button_break_main = new QPushButton("Break", this);
-    //button_break_main->setGeometry(10, 10, 50, 30);
-    //button_run = new QPushButton("Run", this);
-    //button_run->setGeometry(70, 10, 50, 30);
-    //button_c = new QPushButton("Cont.", this);
-    //button_c->setGeometry(130, 10, 50, 30);
-    //button_quit = new QPushButton("Quit", this);
-    //button_quit->setGeometry(190, 10, 50, 30);
     toolbar = new QToolBar("Toolbar", this);
     QIcon icon_break(":/icon-break");
     action_break = new QAction(icon_break, "Break", 0);
@@ -64,45 +55,65 @@ VDWindow::VDWindow(QWidget *parent) : QWidget(parent)
     QGraphicsRectItem *rect = scene->addRect(10, 10, 100, 100, outlinePen, blueBrush);
     rect->setFlag(QGraphicsItem::ItemIsMovable);
 
-    program = "gdb MD1test.exe --interpreter=mi2";
-    GDBProcess = new QProcess();
+    program = "gdb digitalais.exe --interpreter=mi2";
+    process = new QProcess();
 
-    GDBProcess->setProcessChannelMode(QProcess::MergedChannels);
-    GDBProcess->setWorkingDirectory("D:\\Documents\\bakalaurs");
-    GDBProcess->start(program);
+    process->setProcessChannelMode(QProcess::MergedChannels);
+    process->setWorkingDirectory("/home/ilze/Documents");
+    process->start(program);
 
-    connect(GDBProcess, SIGNAL (readyReadStandardOutput()), this, SLOT (slotOutputRecieved()));
+    parser = new GDBMIParser(m_debug_output);
+
+    connect(process, SIGNAL (readyReadStandardOutput()), this, SLOT (slotOutputRecieved()));
 
     connect(action_break, SIGNAL (triggered()), this, SLOT (slotButtonClickedBreakMain()));
     connect(action_run, SIGNAL (triggered()), this, SLOT (slotButtonClickedRun()));
     connect(action_continue, SIGNAL (triggered()), this, SLOT (slotButtonClickedContinue()));
     connect(action_quit, SIGNAL (triggered()), this, SLOT (slotButtonClickedQuit()));
+
 }
 
 void VDWindow::slotOutputRecieved()
 {
-    QByteArray answerData = GDBProcess->readAllStandardOutput();
-    QString answer = answerData.trimmed();
-    m_debug_output->appendPlainText(answer);
+    QByteArray answerData = process->readAllStandardOutput();
+    //QString answer = answerData.trimmed();
+    int size = answerData.size();
+    char * answerString = new char[size + 1];
+    memcpy(answerString, answerData.data(), size);
+    answerString[size] = '\0';
+
+    if (parser->doParse(answerString) == false)
+    {
+        //TODO - do something with the error
+    }
+
+    //m_debug_output->appendPlainText(answerString);
+}
+
+void testArrays(QByteArray pArray)
+{
+int nSize = pArray.size();
+char *pData = new char(nSize);
+memcpy(pData, pArray.data(), nSize);
 }
 
 void VDWindow::slotButtonClickedBreakMain()
 {
-    GDBProcess->write("-break-insert main\n");
+    process->write("-break-insert main\n");
 }
 
 void VDWindow::slotButtonClickedRun()
 {
-    GDBProcess->write("-exec-run\n");
+    process->write("-exec-run\n");
 }
 
 void VDWindow::slotButtonClickedContinue()
 {
-    GDBProcess->write("-exec-continue\n");
+    process->write("-stack-list-locals --simple-values\n");
 }
 
 void VDWindow::slotButtonClickedQuit()
 {
-    GDBProcess->write("q\n");
+    process->write("q\n");
 }
 

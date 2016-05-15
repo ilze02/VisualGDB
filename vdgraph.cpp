@@ -34,7 +34,7 @@ VDGraph::VDGraph()// : _context(gvContext()), _graph(_agopen("G", Agdirected))
  // Strict directed graph, see libgraph doc
 {
     _graph = _agopen("G", Agdirected);
-    //_context = gvContext();
+    _context = gvContext();
 
     //Set graph attributes
     _agset(_graph, "overlap", "prism");
@@ -55,11 +55,11 @@ VDGraph::VDGraph()// : _context(gvContext()), _graph(_agopen("G", Agdirected))
 
     //setFont("Arial");
 }
-/*
+
 VDGraph::~VDGraph()
 {
     gvFreeLayout(_context, _graph);
     agclose(_graph);
     gvFreeContext(_context);
 }
-*/
+

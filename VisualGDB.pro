@@ -8,20 +8,39 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 SOURCES += \
     main.cpp \
     vdwindow.cpp \
-    vdgraph.cpp
+    vdgraph.cpp \
+    gdbmiparser.cpp
 
 HEADERS += \
     vdwindow.h \
-    vdgraph.h
+    vdgraph.h \
+    gdbmiparser.h
 
 RESOURCES += \
     VD-icons/icons-resource.qrc
 
 
-LIBS += -L$$PWD/Graphviz2.38/lib/release/ -lgvc
-LIBS += -L$$PWD/Graphviz2.38/lib/release/ -lcgraph
-LIBS += -L$$PWD/Graphviz2.38/lib/release/ -lcdt
-LIBS += -L$$PWD/Graphviz2.38/lib/release/ -lgvplugin_core
-LIBS += -L$$PWD/Graphviz2.38/lib/release/ -lgvplugin_neato_layout
 
-INCLUDEPATH += $$PWD/Graphviz2.38/include/graphviz
+
+
+unix:!macx: LIBS += -L$$PWD/../prefix/lib/ -lgdbwire
+
+INCLUDEPATH += $$PWD/../prefix
+DEPENDPATH += $$PWD/../prefix
+
+unix:!macx: PRE_TARGETDEPS += $$PWD/../prefix/lib/libgdbwire.a
+
+unix:!macx: LIBS += -L$$PWD/../prefix_graphviz/lib/ -lgvc
+
+INCLUDEPATH += $$PWD/../prefix_graphviz/include
+DEPENDPATH += $$PWD/../prefix_graphviz/include
+
+unix:!macx: LIBS += -L$$PWD/../prefix_graphviz/lib/ -lcgraph
+
+INCLUDEPATH += $$PWD/../prefix_graphviz/include
+DEPENDPATH += $$PWD/../prefix_graphviz/include
+
+unix:!macx: LIBS += -L$$PWD/../prefix_graphviz/lib/ -lcdt
+
+INCLUDEPATH += $$PWD/../prefix_graphviz/include
+DEPENDPATH += $$PWD/../prefix_graphviz/include
