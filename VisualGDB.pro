@@ -9,12 +9,16 @@ SOURCES += \
     main.cpp \
     vdwindow.cpp \
     vdgraph.cpp \
-    gdbmiparser.cpp
+    gdbmiparser.cpp \
+    vdvariable.cpp \
+    vdvariablelist.cpp
 
 HEADERS += \
     vdwindow.h \
     vdgraph.h \
-    gdbmiparser.h
+    gdbmiparser.h \
+    vdvariable.h \
+    vdvariablelist.h
 
 RESOURCES += \
     VD-icons/icons-resource.qrc

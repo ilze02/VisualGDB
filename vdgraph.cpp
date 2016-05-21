@@ -37,11 +37,11 @@ VDGraph::VDGraph()// : _context(gvContext()), _graph(_agopen("G", Agdirected))
     _context = gvContext();
 
     //Set graph attributes
-    _agset(_graph, "overlap", "prism");
-    _agset(_graph, "splines", "true");
-    _agset(_graph, "pad", "0,2");
-    _agset(_graph, "dpi", "96,0");
-    _agset(_graph, "nodesep", "0,4");
+    //_agset(_graph, "overlap", "prism");
+    //_agset(_graph, "splines", "true");
+    //_agset(_graph, "pad", "0,2");
+    //_agset(_graph, "dpi", "96,0");
+    //_agset(_graph, "nodesep", "0,4");
 
     //Set default attributes for the future nodes
     //_agnodeattr(_graph, "fixedsize", "true");

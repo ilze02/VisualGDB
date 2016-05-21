@@ -2,18 +2,21 @@
 #include "gdbwire-lib/gdbmi/gdbmi_parser.h"
 #include <QMessageBox>
 #include <QPlainTextEdit>
+#include <vdvariablelist.h>
 
-
-GDBMIParser::GDBMIParser(QPlainTextEdit * of)
+GDBMIParser::GDBMIParser(QPlainTextEdit * of, QProcess * process, VDWindow * parent)
 {
     struct gdbmi_parser_callbacks callbacks = { this, parser_callback };
     parser = gdbmi_parser_create(callbacks);
     outputField = of;
+    varList = new VDVariableList(this, process, parent);
+    tokenCounter = 0;
 }
 
 GDBMIParser::~GDBMIParser()
 {
     gdbmi_parser_destroy(parser);
+    delete varList;
 }
 
 
@@ -25,16 +28,22 @@ bool GDBMIParser::doParse(char * answer)
     return (result == GDBWIRE_OK);
 }
 
+int GDBMIParser::getToken()
+{
+    tokenCounter++;
+    return tokenCounter;
+}
+
 void GDBMIParser::unwrapAnswer_Output(struct gdbmi_output * output)
 {
     switch (output->kind)
     {
     case GDBMI_OUTPUT_OOB:
-        outputField->appendPlainText("Output parced. Output kind: Out of bound record.");
+        //outputField->appendPlainText("Output parced. Output kind: Out of bound record.");
         unwrapAnswer_OOB_Record(output->variant.oob_record);
         break;
     case GDBMI_OUTPUT_RESULT:
-        outputField->appendPlainText("Output parced. Output kind: Result record.");
+        //outputField->appendPlainText("Output parced. Output kind: Result record.");
         unwrapAnswer_Result_Record(output->variant.result_record);
         break;
     case GDBMI_OUTPUT_PROMPT:
@@ -55,11 +64,11 @@ void GDBMIParser::unwrapAnswer_OOB_Record(struct gdbmi_oob_record * oobRecord)
     switch (oobRecord->kind)
     {
     case GDBMI_ASYNC:
-        outputField->appendPlainText("OOB record parced. OOB kind: ASYNC.");
+        //outputField->appendPlainText("OOB record parced. OOB kind: ASYNC.");
         unwrapAnswer_OOB_Async(oobRecord->variant.async_record);
         break;
     case GDBMI_STREAM:
-        outputField->appendPlainText("OOB record parced. OOB kind: STREAM.");
+        //outputField->appendPlainText("OOB record parced. OOB kind: STREAM.");
         unwrapAnswer_OOB_Stream(oobRecord->variant.stream_record);
         break;
     }
@@ -82,7 +91,7 @@ void GDBMIParser::unwrapAnswer_OOB_Async(struct gdbmi_async_record * asyncRecord
         break;
     }
     //TODO another enum
-    if (asyncRecord->result) unwrapAnswer_Result(asyncRecord->result);
+    if (asyncRecord->result) unwrapAnswer_Result(asyncRecord->result, NULL);
 }
 
 void GDBMIParser::unwrapAnswer_OOB_Stream(struct gdbmi_stream_record * streamRecord)
@@ -112,54 +121,151 @@ void GDBMIParser::unwrapAnswer_Result_Record(struct gdbmi_result_record * result
     {
     case GDBMI_DONE:
         outputField->appendPlainText("Result record parced. Result class: DONE.");
+        if (resultRecord->result != NULL) unwrapAnswer_Result(resultRecord->result, resultRecord->token);
         break;
     case GDBMI_RUNNING:
         outputField->appendPlainText("Result record parced. Result class: RUNNING.");
+        if (resultRecord->result != NULL) unwrapAnswer_Result(resultRecord->result, NULL);
         break;
     case GDBMI_CONNECTED:
         outputField->appendPlainText("Result record parced. Result class: CONNECTED.");
+        if (resultRecord->result != NULL) unwrapAnswer_Result(resultRecord->result, NULL);
         break;
     case GDBMI_ERROR:
         outputField->appendPlainText("Result record parced. Result class: ERROR.");
+        if (resultRecord->result != NULL) unwrapAnswer_Result(resultRecord->result, NULL);
         break;
     case GDBMI_EXIT:
         outputField->appendPlainText("Result record parced. Result class: EXIT.");
+        if (resultRecord->result != NULL) unwrapAnswer_Result(resultRecord->result, NULL);
         break;
     case GDBMI_UNSUPPORTED:
         outputField->appendPlainText("Result record parced. Result class: UNSUPPORTED.");
+        if (resultRecord->result != NULL) unwrapAnswer_Result(resultRecord->result, NULL);
         break;
     default:
         break;
     }
-    if (resultRecord->result != NULL) unwrapAnswer_Result(resultRecord->result);
+
 }
 
-void GDBMIParser::unwrapAnswer_Result(struct gdbmi_result * result)
+void GDBMIParser::unwrapAnswer_Result(struct gdbmi_result * result, char * token)
 {
+    bool specificUnwrap = false;
     switch (result->kind)
     {
     case GDBMI_CSTRING:
-        outputField->appendPlainText("Result parced. Result kind: CSTRING.");
-        outputField->appendPlainText("Variable + cstring: ");
-        outputField->appendPlainText(result->variable);
-        outputField->appendPlainText(result->variant.cstring);
+        if (token != NULL)
+        {
+            specificUnwrap = vdUnwrapAtributes(result, token);
+        }
+        if (!specificUnwrap)
+        {
+            outputField->appendPlainText("Result parced. Result kind: CSTRING.");
+            outputField->appendPlainText("Variable + cstring: ");
+            outputField->appendPlainText(result->variable);
+            outputField->appendPlainText(result->variant.cstring);
+        }
         break;
     case GDBMI_TUPLE:
         outputField->appendPlainText("Result parced. Result kind: TUPLE.");
         outputField->appendPlainText("Variable: ");
         outputField->appendPlainText(result->variable);
-        unwrapAnswer_Result(result->variant.result);
+        if(result->variant.result != NULL)
+        {
+            if (strcmp(result->variable, "child") == 0)
+            {
+                specificUnwrap = vdUnwrapChild(result->variant.result, token);
+                if (specificUnwrap)
+                {
+                    if (result->next == NULL)
+                    {
+                        varList->removeToken(token);
+                    }
+                    else
+                    {
+                        unwrapAnswer_Result(result->next, token);
+                    }
+                }
+            }
+            if (!specificUnwrap)
+            {
+                unwrapAnswer_Result(result->variant.result, token);
+            }
+        }
         break;
     case GDBMI_LIST:
         outputField->appendPlainText("Result parced. Result kind: LIST.");
         outputField->appendPlainText("Variable: ");
         outputField->appendPlainText(result->variable);
-        unwrapAnswer_Result(result->variant.result);
+        if(result->variant.result != NULL)
+        {
+            if (strcmp(result->variable, "locals") == 0)
+            {
+                specificUnwrap = vdUnwrapLocals(result->variant.result);
+            }
+            if (!specificUnwrap)
+            {
+                unwrapAnswer_Result(result->variant.result, token);
+            }
+        }
         break;
     default:
         break;
     }
-    if (result->next != NULL) unwrapAnswer_Result(result->next);
+    if (!specificUnwrap && result->next != NULL) unwrapAnswer_Result(result->next, token);
+}
+
+bool GDBMIParser::vdUnwrapAtributes(struct gdbmi_result * result, char * token)
+{
+    if (!varList->updateVariableAtributes(token, result->variable, result->variant.cstring)) return false;
+
+    if (result->next == NULL)
+    {
+        varList->removeToken(token);
+    }
+    else
+    {
+        return(vdUnwrapAtributes(result->next, token));
+    }
+
+    return true;
+}
+
+bool GDBMIParser::vdUnwrapLocals(struct gdbmi_result * result)
+{
+    if (result->kind != GDBMI_CSTRING) return false;
+    if (strcmp(result->variable, "name") != 0) return false;
+
+    varList->createVariable(result->variant.cstring);
+
+    if (result->next == NULL)
+    {
+        varList->localsParsed = true;
+        varList->listValues();
+    }
+    else
+    {
+        return(vdUnwrapLocals(result->next));
+    }
+
+    return true;
+}
+
+bool GDBMIParser::vdUnwrapChild(struct gdbmi_result * result, char * token)
+{
+    if (result->kind != GDBMI_CSTRING) return false;
+    if (strcmp(result->variable, "exp") == 0)
+    {
+        varList->createChildVariable(result->variant.cstring, token);
+    }
+
+    else
+    {
+        return(vdUnwrapChild(result->next, token));
+    }
+
+    return true;
 }
 
 
@@ -178,4 +284,3 @@ void parser_callback(void *context, struct gdbmi_output *output)
 
     gdbmi_output_free(output);
 }
-
