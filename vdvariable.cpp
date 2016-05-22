@@ -15,13 +15,13 @@ VDVariable::VDVariable(char * n, char * t, char * v, char * a, QList<VDVariable*
     members = m;
     isNamed = true;
     isPointer = false;
-    numChildrenSet = false;
-    addressSet = false;
-    typeSet = false;
-    pointers = new QList<VDVariable*>;
+    //numChildrenSet = false;
+    //addressSet = false;
+    //typeSet = false;
+    //pointers = new QList<VDVariable*>;
     members = new QList<VDVariable*>;
     parent = NULL;
-    pointsTo = NULL;
+    //pointsTo = NULL;
     shortname = QString(n);
 }
 
@@ -33,13 +33,13 @@ VDVariable::VDVariable(char * n, int v, int a, char * sn)
     numChildren = 0;
     isNamed = true;
     isPointer = false;
-    numChildrenSet = false;
-    addressSet = false;
-    typeSet = false;
-    pointers = new QList<VDVariable*>;
+    //numChildrenSet = false;
+    //addressSet = false;
+    //typeSet = false;
+    //pointers = new QList<VDVariable*>;
     members = new QList<VDVariable*>;
     parent = NULL;
-    pointsTo = NULL;
+    //pointsTo = NULL;
     shortname = QString(sn);
 }
 
@@ -51,19 +51,19 @@ VDVariable::VDVariable(QString n, int v, int a, char * sn)
     numChildren = 0;
     isNamed = true;
     isPointer = false;
-    numChildrenSet = false;
-    addressSet = false;
-    typeSet = false;
-    pointers = new QList<VDVariable*>;
+    //numChildrenSet = false;
+    //addressSet = false;
+    //typeSet = false;
+    //pointers = new QList<VDVariable*>;
     members = new QList<VDVariable*>;
     parent = NULL;
-    pointsTo = NULL;
+    //pointsTo = NULL;
     shortname = QString(sn);
 }
 
 VDVariable::~VDVariable()
 {
-    delete pointers;
+    //delete pointers;
     delete members;
 }
 

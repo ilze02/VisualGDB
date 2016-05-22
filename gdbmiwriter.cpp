@@ -41,6 +41,7 @@ void GDBMIWriter::writeStepout()
 
 void GDBMIWriter::writeListLocals()
 {
+    writeVarDeleteAll();
     process->write("-stack-list-locals 0\n");
 }
 
@@ -64,7 +65,7 @@ void GDBMIWriter::writeVarCreate(int token, QString name)
 void GDBMIWriter::writeVarDeleteAll()
 {
     int j = varPrevCounter;
-    varPrevCounter = varCounter;
+    varPrevCounter = varCounter + 1;
     for (int i = j; i <= varCounter; i++)
     {
         QString string = QString("-var-delete v%1\n").arg(i);

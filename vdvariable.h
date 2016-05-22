@@ -25,12 +25,12 @@ public:
     int numChildren;
     bool isNamed;
     bool isPointer;
-    bool numChildrenSet;
-    bool addressSet;
-    bool typeSet;
+    //bool numChildrenSet;
+    //bool addressSet;
+    //bool typeSet;
     QList<VDVariable*> * members;
-    VDVariable * pointsTo;
-    QList<VDVariable*> * pointers;
+    //VDVariable * pointsTo;
+    //QList<VDVariable*> * pointers;
     VDVariable * parent;
 public:
     VDVariable();

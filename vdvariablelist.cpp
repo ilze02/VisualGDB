@@ -108,8 +108,8 @@ void VDVariableList::addVarObject(char * shortname, VDVariable * parent, VDVaria
     {
         var->isNamed = false;
         var->isPointer = true;
-        pointer->pointsTo = var;
-        var->pointers->append(pointer);
+        //pointer->pointsTo = var;
+        //var->pointers->append(pointer);
         prefix = "*";
     }
     else
@@ -229,16 +229,16 @@ void VDVariableList::resolveExistingAddress(VDVariable * var)
     //{
     //    existing->pointsTo = var->pointsTo;
     //}
-    while(!var->pointers->isEmpty())
-    {
-        existing->pointers->append(var->pointers->takeFirst());
-    }
-    bool isEmpty = ((var->pointers)->isEmpty());
-    while(!isEmpty)
-    {
-        VDVariable * pointer = (var->pointers)->takeFirst();
-        if (pointer->pointsTo == var) pointer->pointsTo = existing;
-    }
+    //while(!var->pointers->isEmpty())
+    //{
+    //    existing->pointers->append(var->pointers->takeFirst());
+    //}
+    //bool isEmpty = ((var->pointers)->isEmpty());
+    //while(!isEmpty)
+    //{
+    //    VDVariable * pointer = (var->pointers)->takeFirst();
+    //    if (pointer->pointsTo == var) pointer->pointsTo = existing;
+    //}
     removeVariable(var);
 }
 

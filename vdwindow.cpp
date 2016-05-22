@@ -189,7 +189,7 @@ void VDWindow::slotButtonClickedStepout()
 
 void VDWindow::slotButtonClickedListLocals()
 {
-    writer->writeVarDeleteAll();
+    //writer->writeVarDeleteAll();
     delete varList;
     varList = new VDVariableList(parser, writer, this);
     writer->writeListLocals();
