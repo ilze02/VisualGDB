@@ -10,18 +10,21 @@
 #include <QFile>
 #include <QTextStream>
 #include <vdwindow.h>
+#include <gdbmiwriter.h>
+//#include <gvc.h>
+//#include "gvplugin.h"
 
-VDVariableList::VDVariableList(GDBMIParser * pa, QProcess * pr, VDWindow * w)
+VDVariableList::VDVariableList(GDBMIParser * pa, GDBMIWriter * wr, VDWindow * w)
 {
     parser = pa;
-    process = pr;
+    writer = wr;
     localsParsed = false;
     window = w;
 }
 
 VDVariableList::~VDVariableList()
 {
-
+    //writer->writeVarDeleteAll();
 }
 
 void VDVariableList::createVariable(char * n)
@@ -77,11 +80,17 @@ void VDVariableList::addVarObject(char * shortname, VDVariable * parent, VDVaria
     }
     else
     {
-        nameString = QString("%1.%2").arg(parent->name).arg(shortname);
+        if (parent->type.endsWith("]"))
+        {
+            nameString = QString("%1[%2]").arg(parent->name).arg(shortname);
+        }
+        else
+        {
+            nameString = QString("%1.%2").arg(parent->name).arg(shortname);
+        }
     }
-    char * name = nameString.toUtf8().data();
 
-    VDVariable * var = new VDVariable(name, varToken, addressToken, shortname);
+    VDVariable * var = new VDVariable(nameString, varToken, addressToken, shortname);
     tokenMap.insert(varToken, var);
     tokenMap.insert(addressToken, var);
 
@@ -110,11 +119,13 @@ void VDVariableList::addVarObject(char * shortname, VDVariable * parent, VDVaria
 
     nameMap.insert(var->fullName(), var);
 
-    QString string1 = QString("%1-var-create - * %2%3\n").arg(varToken).arg(prefix).arg(var->name);
-    process->write(string1.toUtf8().data());
+    //QString string1 = QString("%1-var-create - * %2%3\n").arg(varToken).arg(prefix).arg(var->name);
+    //process->write(string1.toUtf8().data());
 
-    QString string2 = QString("%1-var-create - * &%2%3\n").arg(addressToken).arg(prefix).arg(var->name);
-    process->write(string2.toUtf8().data());
+    //QString string2 = QString("%1-var-create - * &%2%3\n").arg(addressToken).arg(prefix).arg(var->name);
+    //process->write(string2.toUtf8().data());
+    writer->writeVarCreate(varToken, QString("%1%2").arg(prefix).arg(var->name));
+    writer->writeVarCreate(addressToken, QString("&%1%2").arg(prefix).arg(var->name));
 }
 
 bool VDVariableList::updateVariableAtributes(char * t, char * atribute, char * value)
@@ -182,13 +193,15 @@ void VDVariableList::getVariableMembers(VDVariable * var, char * keyword)
     QString string;
     if (keyword == NULL)
     {
-        string = QString("%1-var-list-children 0 %2\n").arg(token).arg(var->varobject);
+        //string = QString("%1-var-list-children 0 %2\n").arg(token).arg(var->varobject);
+        string = var->varobject;
     }
     else
     {
-        string = QString("%1-var-list-children 0 %2.%3\n").arg(token).arg(var->varobject).arg(keyword);
+        string = QString("%1.%2").arg(var->varobject).arg(keyword);
     }
-    process->write(string.toUtf8().data());
+    //process->write(string.toUtf8().data());
+    writer->writeVarListChildren(token, string);
 }
 
 void VDVariableList::getVariablePoint(VDVariable * var)
@@ -264,6 +277,7 @@ void VDVariableList::listValues()
     if(!localsParsed) return;
     if(!tokenMap.isEmpty()) return;
 
+    /*
     QMessageBox msgBox;
 
     QString str;
@@ -285,6 +299,7 @@ void VDVariableList::listValues()
 
     msgBox.setText(str);
     msgBox.exec();
+    */
     makeGraphFile();
 }
 
@@ -359,34 +374,36 @@ void VDVariableList::makeGraphFile()
     }
     out << "}";
     file.close();
-    QString gvprogram = "dot";
-    QStringList gvargs;
-    gvargs << "-Tsvg" << "-o" << "graphviztest.svg" << "graphviztest.gv";
-    //QString gvprogram = "dot -Tpng -o graphviztest.png graphviztest.gv";
+    QString gvprogram = "dot -Tsvg -o graphviztest.svg graphviztest.gv";
     QProcess * gvprocess = new QProcess();
-    //gvprocess->setProcessChannelMode(QProcess::MergedChannels);
+    gvprocess->setProcessChannelMode(QProcess::MergedChannels);
     gvprocess->setWorkingDirectory("/home/ilze/Documents");
-    gvprocess->start(gvprogram, gvargs);
-    bool done = gvprocess->waitForFinished();
-    if ( gvprocess->exitStatus() != QProcess::NormalExit) {
-        if ( gvprocess->error() == QProcess::FailedToStart ) {
-            QMessageBox msgBox;
-            msgBox.setText("The Graphviz executable could not be started");
-            msgBox.exec();
-            return;
-        }
-        QMessageBox msgBox;
-        msgBox.setText("The Graphviz executable did not exit normaly");
-        msgBox.exec();
-        return;
-    }
-    if (!done)
-    {
-        QMessageBox msgBox;
-        msgBox.setText("Process got error.");
-        msgBox.exec();
-    }
+    gvprocess->start(gvprogram);
+    gvprocess->waitForFinished();
     gvprocess->close();
     emit window->signalImageParced();
+}
+
+void VDVariableList::renderGraphFile()
+{
+    /*
+    GVC_t * gvc;
+    Agraph_t * g;
+    FILE * fp_gv;
+    gvc = gvContext();
+    extern gvplugin_library_t gvplugin_dot_layout_LTX_library;
+    gvAddLibrary(gvc, &gvplugin_dot_layout_LTX_library);
+    fp_gv = fopen("../graphviztest2.gv", "r");
+    g = agread(fp_gv, 0);
+    gvLayout(gvc, g, "dot");
+    FILE * fp_svg;
+    //fp_svg = fopen("../graphviztest.svg", "w");
+    //gvRender(gvc, g, "svg", fp_svg);
+    fp_svg = fopen("../graphviztest.txt", "w");
+    gvRender(gvc, g, "plain", fp_svg);
+    gvFreeLayout(gvc, g);
+    agclose(g);
+    gvFreeContext(gvc);
+    */
 }
 

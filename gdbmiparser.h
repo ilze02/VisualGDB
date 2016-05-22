@@ -13,19 +13,19 @@ class GDBMIParser
 {
 private:
     struct gdbmi_parser *parser;
+    VDWindow * parent;
 
     void unwrapAnswer_OOB_Record(struct gdbmi_oob_record * oobRecord);
     void unwrapAnswer_Result_Record(struct gdbmi_result_record * resultRecord);
-    void unwrapAnswer_Result(struct gdbmi_result * result, char * token);
+    void unwrapAnswer_Result(struct gdbmi_result * result, char * token, bool silent);
     void unwrapAnswer_OOB_Async(struct gdbmi_async_record * asyncRecord);
     void unwrapAnswer_OOB_Stream(struct gdbmi_stream_record * streamRecord);
     bool vdUnwrapLocals(struct gdbmi_result * result);
     bool vdUnwrapChild(struct gdbmi_result * result, char * token);
     bool vdUnwrapAtributes(struct gdbmi_result * result, char * token);
     int tokenCounter;
-    VDVariableList * varList;
 public:
-    GDBMIParser(QPlainTextEdit * outputField, QProcess * process, VDWindow * parent);
+    GDBMIParser(QPlainTextEdit * outputField, VDWindow * parent);
     ~GDBMIParser();
     bool doParse(char * answer);
     QPlainTextEdit * outputField;

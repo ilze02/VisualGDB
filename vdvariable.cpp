@@ -27,7 +27,25 @@ VDVariable::VDVariable(char * n, char * t, char * v, char * a, QList<VDVariable*
 
 VDVariable::VDVariable(char * n, int v, int a, char * sn)
 {
-    name = QString(n);
+    name = QString::fromLatin1(n, -1);
+    varObjectToken = v;
+    addressToken = a;
+    numChildren = 0;
+    isNamed = true;
+    isPointer = false;
+    numChildrenSet = false;
+    addressSet = false;
+    typeSet = false;
+    pointers = new QList<VDVariable*>;
+    members = new QList<VDVariable*>;
+    parent = NULL;
+    pointsTo = NULL;
+    shortname = QString(sn);
+}
+
+VDVariable::VDVariable(QString n, int v, int a, char * sn)
+{
+    name = n;
     varObjectToken = v;
     addressToken = a;
     numChildren = 0;

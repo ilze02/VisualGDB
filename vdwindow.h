@@ -15,7 +15,8 @@ class QToolBar;
 class QAction;
 class GDBMIParser;
 class QGraphicsPixmapItem;
-
+class GDBMIWriter;
+class VDVariableList;
 
 class VDWindow : public QWidget
 {
@@ -45,6 +46,9 @@ private:
     bool appExecuting;
 
     GDBMIParser * parser;
+    GDBMIWriter * writer;
+public:
+    VDVariableList * varList;
 
 signals:
     //void counterReached();

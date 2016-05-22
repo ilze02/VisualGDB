@@ -7,6 +7,7 @@ class VDVariable;
 class QProcess;
 class GDBMIParser;
 class VDWindow;
+class GDBMIWriter;
 
 class VDVariableList
 {
@@ -15,11 +16,12 @@ private:
     QMap<QString, VDVariable*> addressMap;
     QMap<int, VDVariable*> tokenMap;
     void addVarObject(char * name, VDVariable * parent, VDVariable * pointer);
-    QProcess * process;
+    //QProcess * process;
     GDBMIParser * parser;
+    GDBMIWriter * writer;
     VDWindow * window;
 public:
-    VDVariableList(GDBMIParser * parser, QProcess * process, VDWindow * w);
+    VDVariableList(GDBMIParser * parser, GDBMIWriter * wr, VDWindow * w);
     ~VDVariableList();
     bool localsParsed;
     void createVariable(char * name);
@@ -33,6 +35,7 @@ public:
     void removeToken(char * token);
     void removeVariable(VDVariable * var);
     void makeGraphFile();
+    void renderGraphFile();
     //makeGraph();
 };
 

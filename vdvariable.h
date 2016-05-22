@@ -37,6 +37,7 @@ public:
     ~VDVariable();
     VDVariable(char * n, char * type, char * value, char * address, QList<VDVariable*> * members);
     VDVariable(char * n, int v, int a, char * sn);
+    VDVariable(QString n, int v, int a, char * sn);
     void setVarObject(char * o);
     void setName(char * n);
     void setType(char * t);

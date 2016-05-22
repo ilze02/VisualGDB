@@ -16,6 +16,8 @@
 #include <QAction>
 #include <QMessageBox>
 #include <QPixmap>
+#include <gdbmiwriter.h>
+#include <vdvariablelist.h>
 
 VDWindow::VDWindow(QWidget *parent) : QWidget(parent)
 {
@@ -73,7 +75,7 @@ VDWindow::VDWindow(QWidget *parent) : QWidget(parent)
     //QGraphicsRectItem *rect = scene->addRect(10, 10, 100, 100, outlinePen, blueBrush);
     //rect->setFlag(QGraphicsItem::ItemIsMovable);
 
-    program = "gdb testapp --interpreter=mi2";
+    program = "gdb testapp -iex \"set auto-load safe-path /\" --interpreter=mi2";
     process = new QProcess();
 
     process->setProcessChannelMode(QProcess::MergedChannels);
@@ -81,7 +83,9 @@ VDWindow::VDWindow(QWidget *parent) : QWidget(parent)
     process->start(program);
     appExecuting = false;
 
-    parser = new GDBMIParser(m_debug_output, process, this);
+    parser = new GDBMIParser(m_debug_output, this);
+    writer = new GDBMIWriter(process);
+    varList = new VDVariableList(parser, writer, this);
 
     connect(process, SIGNAL (readyReadStandardOutput()), this, SLOT (slotOutputRecieved()));
 
@@ -112,6 +116,8 @@ VDWindow::~VDWindow()
     process->close();
     delete process;
     delete parser;
+    delete writer;
+    delete varList;
 }
 
 void VDWindow::slotOutputRecieved()
@@ -126,6 +132,9 @@ void VDWindow::slotOutputRecieved()
     if (parser->doParse(answerString) == false)
     {
         //TODO - do something with the error
+        QMessageBox msgBox;
+        msgBox.setText("Parser got error.");
+        msgBox.exec();
     }
 
     //m_debug_output->appendPlainText(answerString);
@@ -146,50 +155,54 @@ void VDWindow::emitSignalImageParced()
 
 void VDWindow::slotButtonClickedBreakMain()
 {
-    process->write("-break-insert testapp.cpp:25\n");
+    //process->write("-break-insert testapp.cpp:30\n");
+    process->write("-break-insert main\n");
 }
 
 void VDWindow::slotButtonClickedRun()
 {
     if (appExecuting)
     {
-        process->write("-exec-continue\n");
+        writer->writeContinue();
     }
     else
     {
         appExecuting = true;
-        process->write("-exec-run\n");
+        writer->writeRun();
     }
 }
 
 void VDWindow::slotButtonClickedStepin()
 {
-    process->write("-exec-step\n");
+    writer->writeStepin();
 }
 
 void VDWindow::slotButtonClickedStepover()
 {
-    process->write("-exec-next\n");
+    writer->writeStepover();
 }
 
 void VDWindow::slotButtonClickedStepout()
 {
-    process->write("-exec-finish\n");
+    writer->writeStepout();
 }
 
 void VDWindow::slotButtonClickedListLocals()
 {
-    process->write("-stack-list-locals 0\n");
+    writer->writeVarDeleteAll();
+    delete varList;
+    varList = new VDVariableList(parser, writer, this);
+    writer->writeListLocals();
 }
 
 void VDWindow::slotButtonClickedStop()
 {
-    process->write("-exec-interrupt\n");
+    writer->writeInterrupt();
 }
 
 void VDWindow::slotButtonClickedQuit()
 {
-    process->write("q\n");
+    writer->writeQuit();
 }
 
 void VDWindow::slotImageParced()
